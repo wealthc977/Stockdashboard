@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equity Intelligence Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ════════════════ THEME TOKENS ════════════════ */
+:root[data-theme="dark"]{
+  --bg:#0a0e17; --bg2:#0f1623; --panel:#131c2b; --panel2:#1a2435; --elev:#1e2940;
+  --border:#243045; --border2:#2d3a52;
+  --text:#e8edf5; --text2:#9aa8be; --text3:#647089;
+  --accent:#3b9eff; --accent2:#2b7fd9; --accent-soft:rgba(59,158,255,.12);
+  --pos:#26d97f; --pos-soft:rgba(38,217,127,.12); --neg:#ff5470; --neg-soft:rgba(255,84,112,.12);
+  --warn:#ffb93b; --gold:#f5c451; --purple:#a78bfa; --teal:#2dd4bf; --orange:#ff9f43;
+  --grid:rgba(255,255,255,.05); --axis:#647089;
+  --g1:rgba(59,158,255,.12); --g2:rgba(167,139,250,.09); --g3:rgba(45,212,191,.06);
+  --shadow:0 4px 24px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.3);
+  --radius:14px; --radius-sm:10px;
+}
+:root[data-theme="light"]{
+  --bg:#ffffff; --bg2:#ffffff; --panel:#ffffff; --panel2:#f4f7fb; --elev:#ffffff;
+  --border:#e6eaf1; --border2:#d6deea;
+  --text:#0f1a2e; --text2:#56657f; --text3:#8a98b0;
+  --accent:#2563eb; --accent2:#1d4ed8; --accent-soft:rgba(37,99,235,.08);
+  --pos:#059669; --pos-soft:rgba(5,150,105,.1); --neg:#dc2626; --neg-soft:rgba(220,38,38,.1);
+  --gold:#d97706; --purple:#7c3aed; --teal:#0d9488; --orange:#ea580c;
+  --grid:rgba(15,26,46,.06); --axis:#8a98b0;
+  --g1:rgba(37,99,235,.05); --g2:rgba(124,58,237,.04); --g3:rgba(13,148,136,.03);
+  --shadow:0 4px 24px rgba(80,100,130,.12); --shadow-sm:0 2px 8px rgba(80,100,130,.08);
+  --radius:14px; --radius-sm:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:
+    radial-gradient(1150px 580px at 50% -10%, var(--g1), transparent 62%),
+    radial-gradient(840px 500px at 97% 0%, var(--g2), transparent 55%),
+    radial-gradient(760px 520px at 0% 18%, var(--g3), transparent 55%),
+    var(--bg);
+  background-attachment:fixed; color:var(--text); font-size:13.5px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+}
+.mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:var(--text3)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ════════════════ TOPBAR ════════════════ */
+#topbar{display:none;position:sticky;top:0;z-index:200;background:var(--bg2);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(12px)}
+.tb-main{display:flex;align-items:center;gap:1rem;padding:.7rem 1.25rem}
+.brand{display:flex;align-items:center;gap:.65rem;flex-shrink:0}
+.brand-logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px var(--accent-soft)}
+.brand-txt h1{font-size:.95rem;font-weight:800;letter-spacing:-.3px;line-height:1.1}
+.brand-txt span{font-size:.62rem;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.tb-spacer{flex:1}
+.tb-actions{display:flex;align-items:center;gap:.5rem}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--panel);
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.icon-btn:hover{color:var(--text);border-color:var(--border2);background:var(--panel2)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;border-radius:9px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);color:#fff}
+
+/* ── Filter bar ── */
+.filterbar{display:flex;align-items:flex-end;gap:.85rem;padding:.4rem 1.25rem .85rem;flex-wrap:wrap;border-top:1px solid var(--border)}
+.fb-group{display:flex;flex-direction:column;gap:.28rem;min-width:0}
+.fb-label{font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;display:flex;align-items:center;gap:.25rem}
+.fb-label .info{cursor:help;color:var(--text3);opacity:.7}
+select,.txt-in{height:36px;padding:0 .7rem;border:1px solid var(--border);border-radius:9px;background:var(--panel);
+  color:var(--text);font-size:.8rem;font-family:inherit;outline:none;transition:border-color .15s;cursor:pointer}
+select:focus,.txt-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+select:disabled{opacity:.45;cursor:not-allowed}
+.txt-in{cursor:text}
+
+/* ── Company multiselect ── */
+.ms{position:relative;min-width:300px;flex:1;max-width:480px}
+.ms-box{min-height:36px;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem;padding:.25rem .4rem;
+  border:1px solid var(--border);border-radius:9px;background:var(--panel);cursor:text}
+.ms-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.chip{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .25rem .2rem .55rem;border-radius:7px;
+  background:var(--accent-soft);color:var(--accent);font-size:.74rem;font-weight:600;max-width:180px}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip b{cursor:pointer;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-weight:700}
+.chip b:hover{background:var(--accent);color:#fff}
+.ms-input{flex:1;min-width:90px;border:none;background:none;outline:none;color:var(--text);font-size:.8rem;font-family:inherit;height:28px}
+.ms-input::placeholder{color:var(--text3)}
+.ms-drop{position:absolute;top:calc(100% + 5px);left:0;right:0;max-height:340px;overflow-y:auto;z-index:300;
+  background:var(--elev);border:1px solid var(--border2);border-radius:11px;box-shadow:var(--shadow);display:none}
+.ms-drop.show{display:block;animation:fadeUp .15s}
+.ms-opt{padding:.55rem .8rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:.5rem;border-bottom:1px solid var(--border)}
+.ms-opt:last-child{border-bottom:none}
+.ms-opt:hover,.ms-opt.hl{background:var(--accent-soft)}
+.ms-opt .o-nm{font-weight:600;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-opt .o-meta{font-size:.68rem;color:var(--text3);flex-shrink:0}
+.ms-empty{padding:1rem;text-align:center;color:var(--text3);font-size:.8rem}
+
+/* ════════════════ LOADER / LANDING ════════════════ */
+#loader{display:none;position:fixed;inset:0;background:var(--bg);z-index:900;align-items:center;justify-content:center;flex-direction:column;gap:1.2rem}
+#loader.show{display:flex}
+.spinner{width:46px;height:46px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+#landing{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.land-card{max-width:560px;width:100%;text-align:center;animation:fadeUp .5s}
+.land-logo{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex;align-items:center;justify-content:center;margin:0 auto 1.6rem;box-shadow:0 8px 40px var(--accent-soft)}
+.land-card h2{font-size:2rem;font-weight:800;letter-spacing:-.5px;margin-bottom:.6rem}
+.land-card .sub{color:var(--text2);font-size:1rem;margin-bottom:2rem;line-height:1.6}
+.drop-zone{border:2px dashed var(--border2);border-radius:18px;padding:2.6rem 2rem;background:var(--panel);transition:all .2s;cursor:pointer}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-soft)}
+.drop-zone .dz-ic{font-size:2.4rem;margin-bottom:.8rem;opacity:.8}
+.drop-zone h3{font-size:1.05rem;font-weight:700;margin-bottom:.35rem}
+.drop-zone p{color:var(--text3);font-size:.85rem}
+.land-feat{display:flex;justify-content:center;gap:1.5rem;margin-top:2rem;flex-wrap:wrap}
+.land-feat div{font-size:.78rem;color:var(--text3);display:flex;align-items:center;gap:.4rem}
+
+/* ════════════════ DASHBOARD ════════════════ */
+#dash{display:none;padding:1.1rem 1.25rem 3rem;max-width:1680px;margin:0 auto}
+.sec{animation:fadeUp .35s}
+.sec-head{display:flex;align-items:center;gap:.6rem;margin:1.4rem .15rem .85rem}
+.sec-head:first-child{margin-top:.3rem}
+.sec-head h2{font-size:1rem;font-weight:700;letter-spacing:-.2px}
+.sec-head .sh-ic{width:26px;height:26px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.sec-head .sh-note{font-size:.72rem;color:var(--text3);font-weight:500}
+.sec-head .sh-line{flex:1;height:1px;background:var(--border)}
+
+/* ── Panels ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.2rem;box-shadow:var(--shadow-sm)}
+.panel h3{font-size:.72rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.grid{display:grid;gap:1rem}
+.ch{position:relative;width:100%}
+
+/* ── KPI cards ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.8rem}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.85rem .95rem;position:relative;overflow:hidden;transition:transform .15s,border-color .15s;box-shadow:var(--shadow-sm)}
+.kpi.sm{padding:.6rem .8rem}
+.kpi.sm .kpi-l{font-size:.6rem;margin-bottom:.25rem}
+.kpi.sm .kpi-v{font-size:1.08rem}
+.kpi.sm .kpi-s{font-size:.62rem;margin-top:.15rem}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2)}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
+.kpi.k-pos::before{background:var(--pos)} .kpi.k-neg::before{background:var(--neg)}
+.kpi.k-gold::before{background:var(--gold)} .kpi.k-purple::before{background:var(--purple)}
+.kpi.k-teal::before{background:var(--teal)} .kpi.k-orange::before{background:var(--orange)}
+.kpi-l{font-size:.64rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:.25rem;margin-bottom:.4rem}
+.kpi-v{font-size:1.32rem;font-weight:700;letter-spacing:-.4px;line-height:1.1}
+.kpi-s{font-size:.68rem;color:var(--text3);margin-top:.25rem;font-weight:500}
+.kpi-s .up{color:var(--pos);font-weight:700} .kpi-s .dn{color:var(--neg);font-weight:700}
+.tip{position:relative;cursor:help}
+.tip .info{display:inline-flex;width:13px;height:13px;border-radius:50%;border:1px solid var(--text3);color:var(--text3);
+  font-size:.6rem;align-items:center;justify-content:center;font-weight:700}
+.tip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--elev);color:var(--text);border:1px solid var(--border2);padding:.5rem .7rem;border-radius:8px;
+  font-size:.72rem;font-weight:500;white-space:normal;width:210px;z-index:400;box-shadow:var(--shadow);text-transform:none;letter-spacing:0;line-height:1.45}
+
+/* ── Company header ── */
+.co-header{display:flex;align-items:center;gap:1.2rem;background:linear-gradient(135deg,var(--panel),var(--panel2));
+  border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem 1.5rem;flex-wrap:wrap}
+.co-logo{width:62px;height:62px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;font-weight:800;color:#fff;flex-shrink:0;box-shadow:var(--shadow-sm)}
+.co-id{flex:1;min-width:240px}
+.co-id h2{font-size:1.45rem;font-weight:800;letter-spacing:-.5px;line-height:1.15}
+.co-tags{display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap}
+.tag{font-size:.7rem;font-weight:600;padding:.22rem .6rem;border-radius:6px;background:var(--panel2);color:var(--text2);border:1px solid var(--border)}
+.tag.accent{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.co-price{text-align:right}
+.co-price .pr{font-size:1.7rem;font-weight:800;letter-spacing:-.5px}
+.co-price .ch{font-size:.85rem;font-weight:700;margin-top:.15rem}
+
+/* ── Profile grid ── */
+.prof-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.1rem;background:var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.prof-item{background:var(--panel);padding:.75rem .9rem}
+.prof-item .pl{font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:.25rem}
+.prof-item .pv{font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prof-item .pv.na{color:var(--text3);font-weight:500;font-style:italic}
+
+/* ── Layout helpers ── */
+.r2{grid-template-columns:1fr 1fr} .r3{grid-template-columns:1fr 1fr 1fr} .r4{grid-template-columns:repeat(4,1fr)}
+.r23{grid-template-columns:2fr 3fr} .r32{grid-template-columns:3fr 2fr} .r21{grid-template-columns:2fr 1fr} .r12{grid-template-columns:1fr 2fr}
+
+/* ── Rank cards ── */
+.rank-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1rem;text-align:center}
+.rank-card .rk-l{font-size:.66rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:.5rem}
+.rank-card .rk-v{font-size:1.6rem;font-weight:800;letter-spacing:-.5px}
+.rank-card .rk-v small{font-size:.85rem;color:var(--text3);font-weight:600}
+.rank-bar{height:5px;background:var(--panel2);border-radius:3px;margin-top:.6rem;overflow:hidden}
+.rank-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--teal))}
+.rank-card .rk-pct{font-size:.66rem;color:var(--text3);margin-top:.4rem;font-weight:600}
+
+/* ── Range gauge ── */
+.gauge{margin-top:.4rem}
+.gauge-track{height:7px;border-radius:4px;background:linear-gradient(90deg,var(--neg),var(--gold),var(--pos));position:relative;margin:1.6rem 0 .5rem}
+.gauge-mark{position:absolute;top:50%;width:3px;height:16px;background:var(--text);border-radius:2px;transform:translate(-50%,-50%);box-shadow:0 0 0 3px var(--panel)}
+.gauge-mark::after{content:attr(data-v);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-size:.66rem;font-weight:700;white-space:nowrap;color:var(--text)}
+.gauge-ends{display:flex;justify-content:space-between;font-size:.72rem;color:var(--text3);font-weight:600}
+.stat-row{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.stat-row:last-child{border-bottom:none}
+.stat-row .sl{color:var(--text2)} .stat-row .sv{font-weight:700}
+
+/* ── Table ── */
+.tbl-tools{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;background:var(--panel)}
+thead th{position:sticky;top:0;background:var(--panel2);padding:.6rem .8rem;text-align:right;font-size:.66rem;font-weight:700;
+  color:var(--text3);text-transform:uppercase;letter-spacing:.4px;cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--border);user-select:none;z-index:5}
+thead th:first-child,thead th:nth-child(2){text-align:left}
+thead th:hover{color:var(--text);background:var(--elev)}
+thead th.asc::after{content:' ▲';font-size:.6rem;color:var(--accent)} thead th.desc::after{content:' ▼';font-size:.6rem;color:var(--accent)}
+tbody td{padding:.55rem .8rem;text-align:right;font-size:.79rem;white-space:nowrap;border-bottom:1px solid var(--border)}
+tbody td:first-child,tbody td:nth-child(2){text-align:left}
+tbody tr{transition:background .1s} tbody tr:hover{background:var(--panel2)}
+tbody tr.sel{background:var(--accent-soft)} tbody tr.sel:hover{background:var(--accent-soft)}
+.cnm{font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:.5rem}
+.cbx{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.pos{color:var(--pos);font-weight:700} .neg{color:var(--neg);font-weight:700}
+.mini-logo{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:800;color:#fff;flex-shrink:0}
+.pill{font-size:.6rem;padding:1px 6px;border-radius:5px;font-weight:700;margin-left:5px}
+.p-large{background:var(--neg-soft);color:var(--neg)} .p-mid{background:var(--pos-soft);color:var(--pos)}
+.p-small{background:var(--accent-soft);color:var(--accent)} .p-micro{background:var(--panel2);color:var(--text3)}
+.pag{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.9rem;flex-wrap:wrap}
+.pag button{min-width:32px;height:32px;padding:0 .5rem;border:1px solid var(--border);background:var(--panel);border-radius:7px;cursor:pointer;font-size:.78rem;color:var(--text);font-family:inherit;transition:all .1s}
+.pag button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pag button.act{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+.pag button:disabled{opacity:.35;cursor:not-allowed}
+.pag .pi{color:var(--text3);font-size:.74rem;margin-left:.5rem}
+.count-badge{font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:.3rem .7rem;border-radius:7px;white-space:nowrap}
+
+.empty-hint{text-align:center;padding:3rem 1rem;color:var(--text3)}
+.empty-hint .eh-ic{font-size:2.5rem;margin-bottom:.8rem;opacity:.5}
+.empty-hint h3{font-size:1rem;font-weight:700;color:var(--text2);margin-bottom:.4rem}
+.notice{display:flex;align-items:flex-start;gap:.6rem;background:var(--accent-soft);border:1px solid transparent;border-radius:var(--radius-sm);padding:.7rem .9rem;font-size:.76rem;color:var(--text2);line-height:1.5}
+.notice b{color:var(--text)}
+.metric-sel{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.9rem}
+.metric-sel button{padding:.32rem .7rem;border:1px solid var(--border);background:var(--panel);border-radius:7px;font-size:.72rem;font-weight:600;color:var(--text2);cursor:pointer;font-family:inherit;transition:all .12s}
+.metric-sel button:hover{border-color:var(--border2);color:var(--text)}
+.metric-sel button.act{background:var(--accent);border-color:var(--accent);color:#fff}
+/* ── Swing + heatmap ── */
+.score-bar{width:56px;height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;flex-shrink:0;border:1px solid var(--border)}
+.score-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--pos));border-radius:4px}
+.sig{font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.sig-strong{background:var(--pos);color:#fff}
+.sig-buy{background:var(--pos-soft);color:var(--pos)}
+.sig-watch{background:rgba(245,196,81,.2);color:var(--gold)}
+.heat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:.45rem}
+.heat-tile{border-radius:9px;padding:.5rem .6rem;color:#fff;min-height:60px;display:flex;flex-direction:column;justify-content:space-between;gap:.2rem;transition:transform .1s;box-shadow:var(--shadow-sm)}
+.heat-tile:hover{transform:scale(1.05);z-index:2}
+.heat-tile .ht-n{font-size:.66rem;font-weight:700;line-height:1.12;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.heat-tile .ht-v{font-size:1rem;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.heat-tile .ht-c{font-size:.56rem;opacity:.9}
+
+/* ── Responsive ── */
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1100px){.r23,.r32,.r3,.r4,.prof-grid{grid-template-columns:1fr 1fr}.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.r2,.r23,.r32,.r3,.r4,.r21,.r12,.prof-grid,.kpi-grid{grid-template-columns:1fr}
+  .filterbar{flex-direction:column;align-items:stretch}.ms{max-width:none}.co-price{text-align:left}}
+
+/* ── Print ── */
+@media print{
+  #topbar,#landing,#loader,.tbl-tools,.pag,.metric-sel,.no-print{display:none!important}
+  body{background:#fff}#dash{display:block!important;max-width:none;padding:0}
+  .panel,.kpi,.co-header,.rank-card{break-inside:avoid;border-color:#ccc}
+  :root[data-theme="dark"]{--bg:#fff;--panel:#fff;--text:#000;--text2:#333;--text3:#666;--border:#ddd}
+}
+</style>
+</head>
+<body>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+
+<div id="loader"><div class="spinner"></div><p style="color:var(--text2);font-size:.85rem">Processing dataset…</p></div>
+
+<!-- ════ LANDING ════ -->
+<div id="landing">
+  <div class="land-card">
+    <div class="land-logo">
+      <svg width="38" height="38" viewBox="0 0 38 38" fill="none"><path d="M6 28L14 18L20 23L28 11L34 16" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="16" r="3" fill="#fff"/><path d="M6 32H34" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".5"/></svg>
+    </div>
+    <h2>Equity Intelligence Terminal</h2>
+    <p class="sub">Upload your company screener to launch an interactive, executive-grade equity analytics workspace.</p>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="dz-ic">📈</div>
+      <h3>Drop your Excel file here</h3>
+      <p>or click to browse · .xlsx / .xls</p>
+    </div>
+    <div class="land-feat">
+      <div>⚡ Instant analytics</div><div>🏢 5,000+ companies</div><div>🌗 Dark / Light</div><div>📤 PDF &amp; Excel export</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TOPBAR ════ -->
+<div id="topbar">
+  <div class="tb-main">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="20" height="20" viewBox="0 0 38 38" fill="none"><path d="M6 28L14 18L20 23L28 11L34 16" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="16" r="3" fill="#fff"/></svg>
+      </div>
+      <div class="brand-txt"><h1>Equity Terminal</h1><span>Intelligence Dashboard</span></div>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-actions">
+      <button class="btn" onclick="exportExcel()" title="Export current table to Excel">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2z" fill="none" stroke="currentColor" stroke-width="1.3" rx="2"/><path d="M5 6l3 4M8 6l-3 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Excel
+      </button>
+      <button class="btn" onclick="window.print()" title="Export / print to PDF">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6V2h8v4M4 12H3a1 1 0 01-1-1V8a1 1 0 011-1h10a1 1 0 011 1v3a1 1 0 01-1 1h-1M4 10h8v4H4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+        PDF
+      </button>
+      <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">
+        <svg id="themeIcon" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 01-4.4 2.26 5.4 5.4 0 01-5.4-5.4c0-1.81.9-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+      </button>
+      <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload new file">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 11V3m0 0L5 6m3-3l3 3M3 12v1a1 1 0 001 1h8a1 1 0 001-1v-1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="filterbar">
+    <div class="fb-group ms" id="msGroup">
+      <label class="fb-label">Companies <span class="count-badge" id="selCount" style="display:none"></span></label>
+      <div class="ms-box" id="msBox" onclick="document.getElementById('msInput').focus()">
+        <input class="ms-input" id="msInput" placeholder="Search & select companies…" autocomplete="off">
+      </div>
+      <div class="ms-drop" id="msDrop"></div>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label">Sector</label>
+      <select id="fSector"><option value="">All Sectors</option></select>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label">Industry</label>
+      <select id="fIndustry"><option value="">All Industries</option></select>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label">Market Cap</label>
+      <select id="fCap">
+        <option value="">All Sizes</option>
+        <option value="Large">Large (&gt;₹10,000 Cr)</option>
+        <option value="Mid">Mid (₹2,000–10,000 Cr)</option>
+        <option value="Small">Small (₹300–2,000 Cr)</option>
+        <option value="Micro">Micro (&lt;₹300 Cr)</option>
+      </select>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label">Year <span class="info tip" data-tip="This dataset is a point-in-time snapshot with trailing-quarter financials. It has no multi-year or monthly history, so Year/Month filters are not applicable.">ⓘ</span></label>
+      <select disabled><option>TTM Snapshot</option></select>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label">Month</label>
+      <select disabled><option>N/A</option></select>
+    </div>
+    <div class="fb-group">
+      <label class="fb-label" style="visibility:hidden">x</label>
+      <button class="btn" onclick="resetAll()">✕ Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ DASHBOARD ════ -->
+<div id="dash">
+  <div id="overviewSection"></div>
+  <div id="companySection"></div>
+  <div id="compareSection"></div>
+  <div id="tableSection"></div>
+</div>
+
+<script>
+/* ═══════════════════════ STATE ═══════════════════════ */
+let ALL=[], byKey={}, SEL=[], CH={};
+let TBL_SORT={col:'Market Capitalization',asc:false}, TBL_PAGE=1, TBL_FILTERED=[];
+const PER=20;
+let INDUSTRY_METRIC='Revenue';
+
+/* ═══════════════════════ UTILS ═══════════════════════ */
+const K='Market Capitalization';
+const n=v=>{const x=parseFloat(v);return isFinite(x)?x:NaN;};
+const ok=v=>{const x=parseFloat(v);return v!==''&&v!=null&&isFinite(x);};
+const sum=a=>a.reduce((s,x)=>s+x,0);
+const avg=a=>a.length?sum(a)/a.length:0;
+const med=a=>{if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const key=r=>r['ISIN Code']||r['Name'];
+
+const amt=v=>isFinite(v)?Math.round(v).toLocaleString('en-IN'):'—';         // plain whole number; unit shown in title
+const fCr=v=>isFinite(v)?Math.round(v).toLocaleString('en-IN')+' Cr':'—';    // inline currency, no symbol
+const fRs=v=>isFinite(v)?Math.round(v).toLocaleString('en-IN'):'—';          // price, whole number, no symbol
+const fPct=(v,d=2)=>isFinite(v)?v.toFixed(d)+'%':'—';
+const fMul=v=>isFinite(v)&&v>0?v.toFixed(2)+'x':'—';
+const fNum=(v,d=2)=>isFinite(v)?v.toLocaleString('en-IN',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
+const fAxis=v=>{const a=Math.abs(v);if(a>=1e5)return (v/1e5).toFixed(1)+'L';if(a>=1e3)return (v/1e3).toFixed(0)+'K';return Math.round(v);};
+const sgn=v=>isFinite(v)?(v>=0?'+':'')+v.toFixed(2)+'%':'—';
+
+const capCat=mc=>{const v=n(mc);if(!isFinite(v))return '';return v>=10000?'Large':v>=2000?'Mid':v>=300?'Small':'Micro';};
+const COLORS=['#3b9eff','#26d97f','#ff9f43','#a78bfa','#2dd4bf','#ff5470','#f5c451','#ec4899','#22d3ee','#84cc16','#fb923c','#c084fc'];
+const logoColor=s=>{let h=0;for(let i=0;i<(s||'').length;i++)h=s.charCodeAt(i)+((h<<5)-h);return `hsl(${Math.abs(h)%360},58%,52%)`;};
+const initials=s=>(s||'?').split(/[\s.&-]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const tickerOf=r=>{const is=r['ISIN Code']||'';return is?is.slice(0,2)+'·'+(r['Name']||'').replace(/[^A-Za-z]/g,'').slice(0,5).toUpperCase():'—';};
+
+/* ── Derived financial metrics (all from real columns) ── */
+const D={
+  revTTM:r=>{const v=n(r['Sales preceding 12months']);if(isFinite(v))return v;
+    return sum(['Sales latest quarter','Sales preceding quarter','Sales 2quarters back','Sales 3quarters back'].map(k=>n(r[k])||0));},
+  netTTM:r=>{const q=['Net Profit latest quarter','Net Profit preceding quarter','Net profit 2quarters back','Net profit 3quarters back'].map(k=>n(r[k]));
+    if(q.every(isFinite))return sum(q);const v=n(r['Net Profit last year']);return isFinite(v)?v:sum(q.filter(isFinite));},
+  opTTM:r=>{const q=['Operating profit latest quarter','Operating profit preceding quarter','Operating profit 2quarters back','Operating profit 3quarters back'].map(k=>n(r[k]));
+    if(q.every(isFinite))return sum(q);const v=n(r['Operating profit last year']);return isFinite(v)?v:sum(q.filter(isFinite));},
+  eps:r=>{const np=D.netTTM(r),sh=n(r['Number of equity shares']);return sh>0?np/sh:NaN;},
+  netMargin:r=>{const rev=D.revTTM(r),np=D.netTTM(r);return rev>0?np/rev*100:NaN;},
+  opMargin:r=>{const v=n(r['OPM']);if(isFinite(v))return v;const rev=D.revTTM(r),op=D.opTTM(r);return rev>0?op/rev*100:NaN;},
+  pb:r=>{const mc=n(r[K]),nw=n(r['Net worth']);return nw>0?mc/nw:NaN;},
+  revGrowth:r=>{const c=n(r['Sales latest quarter']),p=n(r['Sales preceding year quarter']);return p>0?(c/p-1)*100:NaN;},
+  profitGrowth:r=>{const c=n(r['Net Profit latest quarter']),p=n(r['Net Profit preceding year quarter']);return (isFinite(c)&&isFinite(p)&&p>0)?(c/p-1)*100:NaN;},
+  ebitdaMargin:r=>D.opMargin(r)
+};
+
+function mkChart(id,cfg){if(CH[id])CH[id].destroy();const el=document.getElementById(id);if(!el)return;CH[id]=new Chart(el.getContext('2d'),cfg);}
+function themeColors(){const cs=getComputedStyle(document.documentElement);
+  return {grid:cs.getPropertyValue('--grid').trim(),axis:cs.getPropertyValue('--axis').trim(),
+    text:cs.getPropertyValue('--text').trim(),text2:cs.getPropertyValue('--text2').trim(),
+    panel:cs.getPropertyValue('--elev').trim(),border:cs.getPropertyValue('--border2').trim()};}
+function baseOpts(extra={}){const t=themeColors();
+  return Object.assign({responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:t.text2,font:{family:'Inter',size:11},usePointStyle:true,pointStyle:'circle',padding:14}},
+      tooltip:{backgroundColor:t.panel,titleColor:t.text,bodyColor:t.text2,borderColor:t.border,borderWidth:1,
+        padding:10,cornerRadius:8,titleFont:{family:'Inter',weight:'700',size:12},bodyFont:{family:'Inter',size:11.5},displayColors:true,usePointStyle:true}},
+    scales:{x:{grid:{color:t.grid,drawBorder:false},ticks:{color:t.axis,font:{family:'Inter',size:10.5}}},
+      y:{grid:{color:t.grid,drawBorder:false},ticks:{color:t.axis,font:{family:'Inter',size:10.5}}}}},extra);}
+
+/* ═══════════════════════ FILE LOAD ═══════════════════════ */
+document.getElementById('fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(f)readFile(f);});
+const dz=document.getElementById('dropZone');
+['dragover','dragenter'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();dz&&dz.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();dz&&dz.classList.remove('drag');}));
+document.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f&&/\.xlsx?$/i.test(f.name))readFile(f);});
+
+function readFile(f){
+  document.getElementById('loader').classList.add('show');
+  const r=new FileReader();
+  r.onload=ev=>setTimeout(()=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      ALL=XLSX.utils.sheet_to_json(ws,{defval:''}).filter(r=>r['Name']);
+      byKey={};ALL.forEach(r=>byKey[key(r)]=r);
+      SEL=[];
+      initFilters();
+      document.getElementById('landing').style.display='none';
+      document.getElementById('topbar').style.display='block';
+      document.getElementById('dash').style.display='block';
+      renderAll();
+    }catch(err){alert('Could not read file: '+err.message);}
+    document.getElementById('loader').classList.remove('show');
+  },60);
+  r.readAsBinaryString(f);
+}
+
+/* ═══════════════════════ FILTERS ═══════════════════════ */
+function initFilters(){
+  const sectors=[...new Set(ALL.map(r=>r['Industry Group']).filter(Boolean))].sort();
+  const inds=[...new Set(ALL.map(r=>r['Industry']).filter(Boolean))].sort();
+  fill('fSector',sectors,'All Sectors');
+  fill('fIndustry',inds,'All Industries');
+}
+function fill(id,arr,first){const s=document.getElementById(id);s.innerHTML=`<option value="">${first}</option>`+arr.map(v=>`<option>${v}</option>`).join('');}
+['fSector','fIndustry','fCap'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{
+  if(id==='fSector')syncIndustryOptions();
+  renderAll();
+}));
+function syncIndustryOptions(){
+  const sec=document.getElementById('fSector').value;
+  const cur=document.getElementById('fIndustry').value;
+  const inds=[...new Set(ALL.filter(r=>!sec||r['Industry Group']===sec).map(r=>r['Industry']).filter(Boolean))].sort();
+  fill('fIndustry',inds,'All Industries');
+  if(inds.includes(cur))document.getElementById('fIndustry').value=cur;
+}
+function resetAll(){
+  document.getElementById('fSector').value='';document.getElementById('fIndustry').value='';
+  document.getElementById('fCap').value='';SEL=[];syncIndustryOptions();renderAll();
+}
+function universe(){
+  const sec=document.getElementById('fSector').value,ind=document.getElementById('fIndustry').value,cap=document.getElementById('fCap').value;
+  return ALL.filter(r=>{
+    if(sec&&r['Industry Group']!==sec)return false;
+    if(ind&&r['Industry']!==ind)return false;
+    if(cap&&capCat(r[K])!==cap)return false;
+    return true;
+  });
+}
+
+/* ── Company multi-select ── */
+const msInput=document.getElementById('msInput'),msDrop=document.getElementById('msDrop'),msBox=document.getElementById('msBox');
+let msHL=-1,msMatches=[];
+msInput.addEventListener('input',openDrop);
+msInput.addEventListener('focus',openDrop);
+msInput.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){msHL=Math.min(msHL+1,msMatches.length-1);drawDrop();e.preventDefault();}
+  else if(e.key==='ArrowUp'){msHL=Math.max(msHL-1,0);drawDrop();e.preventDefault();}
+  else if(e.key==='Enter'&&msMatches[msHL]){addSel(key(msMatches[msHL]));}
+  else if(e.key==='Backspace'&&!msInput.value&&SEL.length){SEL.pop();renderAll();}
+});
+document.addEventListener('click',e=>{if(!document.getElementById('msGroup').contains(e.target))msDrop.classList.remove('show');});
+function openDrop(){
+  const q=msInput.value.toLowerCase().trim();
+  let pool=ALL;
+  if(q)pool=ALL.filter(r=>r['Name'].toLowerCase().includes(q));
+  msMatches=pool.filter(r=>!SEL.includes(key(r))).slice(0,60);
+  msHL=msMatches.length?0:-1;drawDrop();msDrop.classList.add('show');
+}
+function drawDrop(){
+  if(!msMatches.length){msDrop.innerHTML='<div class="ms-empty">No matching companies</div>';return;}
+  msDrop.innerHTML=msMatches.map((r,i)=>`<div class="ms-opt ${i===msHL?'hl':''}" onmousedown="event.preventDefault();addSel('${key(r).replace(/'/g,"\\'")}')">
+    <span class="o-nm">${r['Name']}</span><span class="o-meta">${r['Industry']||''} · ${fCr(n(r[K]))}</span></div>`).join('');
+  const hl=msDrop.querySelector('.hl');if(hl)hl.scrollIntoView({block:'nearest'});
+}
+function addSel(k){if(!SEL.includes(k))SEL.push(k);msInput.value='';msDrop.classList.remove('show');renderAll();}
+function removeSel(k){SEL=SEL.filter(x=>x!==k);renderAll();}
+function drawChips(){
+  document.querySelectorAll('.chip').forEach(c=>c.remove());
+  SEL.forEach(k=>{const r=byKey[k];if(!r)return;
+    const c=document.createElement('div');c.className='chip';
+    c.innerHTML=`<span>${r['Name']}</span><b onclick="event.stopPropagation();removeSel('${k.replace(/'/g,"\\'")}')">×</b>`;
+    msBox.insertBefore(c,msInput);});
+  const cb=document.getElementById('selCount');
+  if(SEL.length){cb.style.display='';cb.textContent=SEL.length+' selected';}else cb.style.display='none';
+}
+
+/* ═══════════════════════ MASTER RENDER ═══════════════════════ */
+function renderAll(){
+  drawChips();
+  const ov=document.getElementById('overviewSection'),co=document.getElementById('companySection'),
+        cmp=document.getElementById('compareSection');
+  ov.innerHTML='';co.innerHTML='';cmp.innerHTML='';
+  if(SEL.length===0){renderOverview(ov);}
+  else if(SEL.length===1){renderCompany(co,byKey[SEL[0]]);}
+  else{renderCompare(cmp);}
+  renderTable();
+}
+
+/* ═══════════════════════ SWING / HEATMAP HELPERS ═══════════════════════ */
+let HEAT_PERIOD='Return over 1week';
+const HEAT_DEFS={'Return over 1day':{lbl:'Daily',range:4},'Return over 1week':{lbl:'Weekly',range:8},'Return over 1month':{lbl:'Monthly',range:15}};
+
+// Swing-trade score (0-100) from technical + momentum signals present in the dataset
+function swingScore(r){
+  const price=n(r['Current Price']),d50=n(r['DMA 50']),d200=n(r['DMA 200']);
+  const rsi=n(r['RSI']),macd=n(r['MACD']);
+  const w=n(r['Return over 1week']),m=n(r['Return over 1month']),q=n(r['Return over 3months']);
+  const vol=n(r['Volume']),av=n(r['Volume 1month average']);
+  if(!isFinite(price)||!isFinite(d50)||!isFinite(rsi))return null;
+  let s=0;
+  if(price>d50)s+=14;                                  // above 50-DMA (uptrend)
+  if(isFinite(d200)&&d50>d200)s+=12;                   // golden alignment
+  if(isFinite(d200)&&price>d200)s+=6;                  // above 200-DMA
+  if(rsi>=50&&rsi<=68)s+=20-Math.abs(58-rsi)*0.7;      // momentum sweet-spot
+  else if(rsi>=42&&rsi<50)s+=11;                       // early recovery
+  else if(rsi>68&&rsi<=74)s+=7;                        // strong but heating
+  if(isFinite(macd)&&macd>0)s+=10;                     // positive MACD
+  if(isFinite(w))s+=Math.max(-6,Math.min(12,w));       // weekly momentum
+  if(isFinite(m))s+=Math.max(-6,Math.min(12,m*0.5));   // monthly momentum
+  if(isFinite(q)&&q>0)s+=Math.min(4,q*0.1);
+  if(isFinite(vol)&&isFinite(av)&&av>0){const vr=vol/av;s+=vr>1.5?9:vr>1?6:vr>0.6?3:0;} // volume interest
+  if(rsi>76)s-=18;                                     // overbought penalty
+  if(isFinite(d200)&&price<d200)s-=8;                  // below long-term trend
+  return Math.max(0,Math.min(100,Math.round(s)));
+}
+function swingList(u){
+  return u.filter(r=>{const mc=n(r[K]),av=n(r['Volume 1month average']);return isFinite(mc)&&mc>=500&&isFinite(av)&&av>=50000;})
+    .map(r=>({r,score:swingScore(r)})).filter(x=>x.score!=null)
+    .sort((a,b)=>b.score-a.score);
+}
+function swingSignal(s){return s>=72?['Strong Setup','sig-strong']:s>=58?['Buy Zone','sig-buy']:['Watch','sig-watch'];}
+function heatColor(v,range){
+  if(!isFinite(v))return 'hsl(220,8%,70%)';
+  const t=Math.max(-1,Math.min(1,v/range));
+  if(Math.abs(t)<0.06)return 'hsl(220,9%,62%)';
+  const hue=t>=0?148:356,sat=58+Math.abs(t)*28,light=52-Math.abs(t)*16;
+  return `hsl(${hue},${sat}%,${light}%)`;
+}
+
+/* ═══════════════════════ MARKET / SWING HOME (0 selected) ═══════════════════════ */
+function renderOverview(host){
+  const u=universe();
+  const totCap=sum(u.map(r=>n(r[K])||0));
+  const peV=u.map(r=>n(r['Price to Earning'])).filter(v=>v>0&&v<300);
+  const roeV=u.map(r=>n(r['Return on equity'])).filter(isFinite);
+  const opmV=u.map(r=>n(r['OPM'])).filter(isFinite);
+  const pos=u.filter(r=>n(r['Return over 1year'])>0).length;
+  const kpis=[
+    ['Companies',u.length.toLocaleString('en-IN'),'in view','accent'],
+    ['Total Mkt Cap (₹ L Cr)',amt(totCap/1e5),'combined','teal'],
+    ['Median P/E',fMul(med(peV)),'valuation','purple'],
+    ['Median ROE',fPct(med(roeV)),'profitability','gold'],
+    ['Median Op. Margin',fPct(med(opmV)),'efficiency','accent'],
+    ['Positive 1Y',(u.length?(pos/u.length*100).toFixed(0):0)+'%',pos.toLocaleString('en-IN')+' stocks',pos>=u.length/2?'pos':'neg'],
+  ];
+  const swing=swingList(u).slice(0,10);
+  const o=baseOpts();
+
+  host.innerHTML=`
+    <div class="sec">
+      <div class="sec-head" style="margin-top:.3rem"><div class="sh-ic">📊</div><h2>Market Snapshot</h2><span class="sh-note">${u.length.toLocaleString('en-IN')} companies · search or select a company above for the full deep-dive</span><div class="sh-line"></div></div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(6,1fr)">
+        ${kpis.map(k=>`<div class="kpi sm k-${k[3]}"><div class="kpi-l">${k[0]}</div><div class="kpi-v mono">${k[1]}</div><div class="kpi-s">${k[2]}</div></div>`).join('')}
+      </div>
+
+      <div class="sec-head"><div class="sh-ic">⚡</div><h2>Swing Trading — Top 10 Setups</h2><span class="sh-note">ranked by technical swing score${u.length<ALL.length?' · within current filter':''}</span><div class="sh-line"></div></div>
+      <div class="notice" style="margin-bottom:.7rem"><span>⚠️</span><div><b>Technical screen, not investment advice.</b> Score blends trend (price vs 50/200-DMA), RSI momentum, MACD, weekly/monthly returns &amp; volume surge. Liquidity filter applied: market-cap ≥ ₹500 Cr and avg volume ≥ 50,000. Always do your own research before trading.</div></div>
+      <div class="tbl-wrap"><table><thead><tr>
+        <th style="text-align:center">#</th><th>Company</th><th>Price (₹)</th><th>Swing Score</th><th>RSI</th><th>vs 50-DMA</th><th>MACD</th><th>1W %</th><th>1M %</th><th>Vol/Avg</th><th style="text-align:center">Signal</th>
+      </tr></thead><tbody>
+        ${swing.map((x,i)=>swingRow(x,i)).join('')||`<tr><td colspan="11" style="text-align:center;padding:1.5rem;color:var(--text3)">No stocks pass the liquidity + setup filter in this view</td></tr>`}
+      </tbody></table></div>
+
+      <div class="sec-head"><div class="sh-ic">🔥</div><h2>Industry Heatmap</h2><span class="sh-note">average return by sector · daily / weekly / monthly</span><div class="sh-line"></div></div>
+      <div class="panel">
+        <div class="metric-sel" id="heatSel">
+          ${Object.entries(HEAT_DEFS).map(([k,d])=>`<button class="${k===HEAT_PERIOD?'act':''}" onclick="setHeat('${k}')">${d.lbl}</button>`).join('')}
+        </div>
+        <div class="heat-grid" id="heatGrid"></div>
+      </div>
+
+      <div class="sec-head"><div class="sh-ic">📈</div><h2>Top 10 Swing — Visual Overview</h2><div class="sh-line"></div></div>
+      <div class="grid r2">
+        <div class="panel"><h3>Swing Score — Top 10</h3><div class="ch" style="height:300px"><canvas id="swScore"></canvas></div></div>
+        <div class="panel"><h3>Positioning <span style="color:var(--text3);font-weight:600">· RSI vs 1-Month Momentum · click a point</span></h3><div class="ch" style="height:300px"><canvas id="swScatter"></canvas></div></div>
+      </div>
+
+      <div class="sec-head"><div class="sh-ic">🏛️</div><h2>Market Structure</h2><div class="sh-line"></div></div>
+      <div class="grid r3">
+        <div class="panel"><h3>Sector Distribution — Top 12</h3><div class="ch" style="height:240px"><canvas id="ovSector"></canvas></div></div>
+        <div class="panel"><h3>Market Cap Segments</h3><div class="ch" style="height:240px"><canvas id="ovCap"></canvas></div></div>
+        <div class="panel"><h3>Avg Returns by Horizon</h3><div class="ch" style="height:240px"><canvas id="ovRet"></canvas></div></div>
+      </div>
+    </div>`;
+
+  renderHeatmap(u);
+  // Swing score bar
+  mkChart('swScore',{type:'bar',data:{labels:swing.map(x=>x.r['Name']),datasets:[{data:swing.map(x=>x.score),
+      backgroundColor:swing.map(x=>x.score>=72?'#26d97f':x.score>=58?'#3b9eff':'#ff9f43'),borderRadius:4}]},
+    options:baseOpts({indexAxis:'y',plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>'Swing score: '+c.parsed.x}}},
+      scales:{x:{...o.scales.x,min:0,max:100},y:o.scales.y},
+      onClick:(e,el)=>{if(el.length){SEL=[key(swing[el[0].index].r)];renderAll();}}})});
+  // Scatter: RSI vs 1M momentum
+  mkChart('swScatter',{type:'scatter',data:{datasets:[{
+      data:swing.map(x=>({x:n(x.r['RSI']),y:n(x.r['Return over 1month']),nm:x.r['Name'],sc:x.score})),
+      backgroundColor:swing.map(x=>x.score>=72?'#26d97f':x.score>=58?'#3b9eff':'#ff9f43'),pointRadius:8,pointHoverRadius:11}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.raw.nm+' · RSI '+c.raw.x.toFixed(1)+' · 1M '+sgn(c.raw.y)+' · Score '+c.raw.sc}}},
+      scales:{x:{...o.scales.x,title:{display:true,text:'RSI',color:o.scales.x.ticks.color,font:{size:11}},min:20,max:90},
+              y:{...o.scales.y,title:{display:true,text:'1M Return %',color:o.scales.y.ticks.color,font:{size:11}},ticks:{...o.scales.y.ticks,callback:v=>v+'%'}}},
+      onClick:(e,el)=>{if(el.length){SEL=[key(swing[el[0].index].r)];renderAll();}}})});
+  // Sector distribution (compact)
+  const sc={};u.forEach(r=>{const g=r['Industry Group']||'Other';sc[g]=(sc[g]||0)+1;});
+  const sd=Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  mkChart('ovSector',{type:'bar',data:{labels:sd.map(x=>x[0]),datasets:[{data:sd.map(x=>x[1]),backgroundColor:COLORS,borderRadius:3}]},
+    options:baseOpts({indexAxis:'y',plugins:{legend:{display:false},tooltip:o.plugins.tooltip}})});
+  // Cap segments
+  const cc={Large:0,Mid:0,Small:0,Micro:0};u.forEach(r=>{const c=capCat(r[K]);if(c)cc[c]++;});
+  mkChart('ovCap',{type:'doughnut',data:{labels:Object.keys(cc),datasets:[{data:Object.values(cc),backgroundColor:['#ff5470','#26d97f','#3b9eff','#647089'],borderWidth:0}]},
+    options:baseOpts({cutout:'62%',scales:{},plugins:{legend:{position:'right',labels:o.plugins.legend.labels},tooltip:o.plugins.tooltip}})});
+  // Returns by horizon
+  const rp=[['Return over 1day','1D'],['Return over 1week','1W'],['Return over 1month','1M'],['Return over 3months','3M'],['Return over 6months','6M'],['Return over 1year','1Y']];
+  const rv=rp.map(p=>+avg(u.map(r=>n(r[p[0]])).filter(isFinite)).toFixed(2));
+  mkChart('ovRet',{type:'bar',data:{labels:rp.map(p=>p[1]),datasets:[{data:rv,backgroundColor:rv.map(v=>v>=0?'#26d97f':'#ff5470'),borderRadius:4}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'%'}}}})});
+}
+
+function swingRow(x,i){
+  const r=x.r,price=n(r['Current Price']),d50=n(r['DMA 50']),rsi=n(r['RSI']),macd=n(r['MACD']);
+  const w=n(r['Return over 1week']),m=n(r['Return over 1month']);
+  const vol=n(r['Volume']),av=n(r['Volume 1month average']);
+  const vr=(isFinite(vol)&&isFinite(av)&&av>0)?vol/av:NaN;
+  const vsd=(price>0&&d50>0)?(price/d50-1)*100:NaN;
+  const [sigT,sigC]=swingSignal(x.score);
+  const rsiCls=isFinite(rsi)?(rsi>70?'neg':rsi<35?'pos':''):'';
+  return `<tr style="cursor:pointer" onclick="SEL=['${key(r).replace(/'/g,"\\'")}'];renderAll()">
+    <td style="text-align:center;font-weight:800;color:var(--text3)">${i+1}</td>
+    <td><div class="cnm"><span class="mini-logo" style="background:${logoColor(r['Name'])}">${initials(r['Name'])}</span><span style="overflow:hidden;text-overflow:ellipsis">${r['Name']}</span></div></td>
+    <td class="mono">${amt(price)}</td>
+    <td><div style="display:flex;align-items:center;gap:.5rem;justify-content:flex-end"><div class="score-bar"><i style="width:${x.score}%"></i></div><b class="mono" style="min-width:22px">${x.score}</b></div></td>
+    <td class="mono ${rsiCls}">${fNum(rsi)}</td>
+    <td class="mono ${isFinite(vsd)?(vsd>=0?'pos':'neg'):''}">${sgn(vsd)}</td>
+    <td class="mono ${isFinite(macd)?(macd>=0?'pos':'neg'):''}">${fNum(macd)}</td>
+    <td class="mono ${isFinite(w)?(w>=0?'pos':'neg'):''}">${sgn(w)}</td>
+    <td class="mono ${isFinite(m)?(m>=0?'pos':'neg'):''}">${sgn(m)}</td>
+    <td class="mono">${isFinite(vr)?vr.toFixed(2)+'x':'—'}</td>
+    <td style="text-align:center"><span class="sig ${sigC}">${sigT}</span></td>
+  </tr>`;
+}
+function setHeat(k){HEAT_PERIOD=k;document.querySelectorAll('#heatSel button').forEach(b=>b.classList.toggle('act',b.textContent===HEAT_DEFS[k].lbl));renderHeatmap(universe());}
+function renderHeatmap(u){
+  const def=HEAT_DEFS[HEAT_PERIOD];
+  const m={};u.forEach(r=>{const g=r['Industry Group'];const v=n(r[HEAT_PERIOD]);if(g&&isFinite(v))(m[g]=m[g]||[]).push(v);});
+  const data=Object.entries(m).map(([k,v])=>({k,v:avg(v),c:v.length})).sort((a,b)=>b.v-a.v);
+  const el=document.getElementById('heatGrid');if(!el)return;
+  el.innerHTML=data.map(d=>`<div class="heat-tile" style="background:${heatColor(d.v,def.range)}" title="${d.k}: ${sgn(d.v)} avg (${def.lbl}) · ${d.c} stocks">
+    <div class="ht-n">${d.k}</div><div class="ht-v">${sgn(d.v)}</div><div class="ht-c">${d.c} stocks</div></div>`).join('')
+    ||`<div style="color:var(--text3);padding:1rem">No data for this period</div>`;
+}
+
+/* ═══════════════════════ COMPANY DEEP-DIVE (1 selected) ═══════════════════════ */
+function renderCompany(host,r){
+  if(!r){host.innerHTML='';return;}
+  const peers=peersOf(r);
+  const price=n(r['Current Price']),hi=n(r['High price']),lo=n(r['Low price']);
+  const r1y=n(r['Return over 1year']);
+  // ── Header + profile ──
+  host.innerHTML=`
+  <div class="sec">
+    <div class="co-header">
+      <div class="co-logo" style="background:${logoColor(r['Name'])}">${initials(r['Name'])}</div>
+      <div class="co-id">
+        <h2>${r['Name']}</h2>
+        <div class="co-tags">
+          <span class="tag accent">${tickerOf(r)}</span>
+          <span class="tag">${r['Industry']||'—'}</span>
+          <span class="tag">${r['Industry Group']||'—'}</span>
+          <span class="tag">${capCat(r[K])} Cap</span>
+        </div>
+      </div>
+      <div class="co-price">
+        <div class="pr mono">${fRs(price)}<span style="font-size:.8rem;color:var(--text3);font-weight:600;margin-left:5px">(₹)</span></div>
+        <div class="ch ${r1y>=0?'pos':'neg'}">${sgn(r1y)} <span style="color:var(--text3);font-weight:600">1Y</span></div>
+      </div>
+    </div>
+
+    <div class="sec-head"><div class="sh-ic">📋</div><h2>Company Profile</h2><div class="sh-line"></div></div>
+    <div class="grid r32">
+      <div class="panel">
+        <div class="prof-grid">
+          ${profItem('Ticker / ISIN',r['ISIN Code'])}
+          ${profItem('Industry',r['Industry'])}
+          ${profItem('Sector',r['Industry Group'])}
+          ${profItem('Exchange','NSE / BSE')}
+          ${profItem('Market Cap',fCr(n(r[K])))}
+          ${profItem('Cap Category',capCat(r[K])+' Cap')}
+          ${profItem('Latest Period','TTM')}
+          ${profItem('Annual Revenue',fCr(D.revTTM(r)))}
+          ${profItem('Annual Net Profit',fCr(D.netTTM(r)))}
+          ${profItem('P/E Ratio',fMul(n(r['Price to Earning'])))}
+          ${profItem('Equity Shares',fNum(n(r['Number of equity shares']))+' Cr')}
+          ${profItem('Founded Year',null)}
+          ${profItem('Headquarters',null)}
+          ${profItem('CEO',null)}
+          ${profItem('Employees',null)}
+        </div>
+        <div class="notice" style="margin-top:.9rem"><span>ℹ️</span><div><b>Profile fields marked “Not in dataset”</b> (founded year, HQ, CEO, employees, website, business description) aren’t present in the uploaded file. Add those columns to the Excel and they’ll populate automatically.</div></div>
+      </div>
+      <div class="panel">
+        <h3>Key Statistics</h3>
+        ${statRow('All-Time High',fRs(n(r['High price all time'])))}
+        ${statRow('52W High',fRs(hi))}
+        ${statRow('52W Low',fRs(lo))}
+        ${statRow('Net Worth',fCr(n(r['Net worth'])))}
+        ${statRow('Cash &amp; Equivalents',fCr(n(r['Cash Equivalents'])))}
+        ${statRow('Book Value / Share',fRs(n(r['Net worth'])/n(r['Number of equity shares'])))}
+        ${statRow('Promoter Holding',fPct(n(r['Promoter holding'])))}
+        ${statRow('Pledged %',fPct(n(r['Pledged percentage'])))}
+        ${statRow('Current Ratio',fNum(n(r['Current ratio'])))}
+        ${statRow('PEG Ratio',fNum(n(r['PEG Ratio'])))}
+      </div>
+    </div>
+
+    <div class="sec-head"><div class="sh-ic">💹</div><h2>Key Performance Indicators</h2><span class="sh-note">Trailing twelve months</span><div class="sh-line"></div></div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="sec-head"><div class="sh-ic">📈</div><h2>Financial Trends</h2><span class="sh-note">Last 4 quarters from dataset</span><div class="sh-line"></div></div>
+    <div class="grid r2">
+      <div class="panel"><h3>Quarterly Revenue Trend</h3><div class="ch" style="height:240px"><canvas id="cRev"></canvas></div></div>
+      <div class="panel"><h3>Quarterly Net Profit Trend</h3><div class="ch" style="height:240px"><canvas id="cNet"></canvas></div></div>
+    </div>
+    <div class="grid r2" style="margin-top:1rem">
+      <div class="panel"><h3>Operating Profit (Area)</h3><div class="ch" style="height:240px"><canvas id="cOp"></canvas></div></div>
+      <div class="panel"><h3>Revenue vs Net Profit <span style="color:var(--text3);font-weight:600">· dual axis</span></h3><div class="ch" style="height:240px"><canvas id="cDual"></canvas></div></div>
+    </div>
+    <div class="grid r2" style="margin-top:1rem">
+      <div class="panel"><h3>Quarterly Performance <span style="color:var(--text3);font-weight:600">· Revenue / Op / Net</span></h3><div class="ch" style="height:240px"><canvas id="cQperf"></canvas></div></div>
+      <div class="panel"><h3>Margin Trends <span style="color:var(--text3);font-weight:600">· Operating &amp; Net %</span></h3><div class="ch" style="height:240px"><canvas id="cMargin"></canvas></div></div>
+    </div>
+    <div class="grid r3" style="margin-top:1rem">
+      <div class="panel"><h3>YoY Growth <span style="color:var(--text3);font-weight:600">· latest qtr vs prior year</span></h3><div class="ch" style="height:230px"><canvas id="cYoY"></canvas></div></div>
+      <div class="panel"><h3>Valuation Multiples <span style="color:var(--text3);font-weight:600">· vs industry median</span></h3><div class="ch" style="height:230px"><canvas id="cVal"></canvas></div></div>
+      <div class="panel"><h3>Share Price Returns</h3><div class="ch" style="height:230px"><canvas id="cPriceRet"></canvas></div></div>
+    </div>
+
+    <div class="sec-head"><div class="sh-ic">🎯</div><h2>Price &amp; Technicals</h2><div class="sh-line"></div></div>
+    <div class="grid r3">
+      <div class="panel"><h3>52-Week Range</h3>${rangeGauge(price,lo,hi)}
+        ${statRow('Current',fRs(price))}${statRow('From 52W Low',sgn(lo>0?(price/lo-1)*100:NaN))}${statRow('From 52W High',sgn(hi>0?(price/hi-1)*100:NaN))}</div>
+      <div class="panel"><h3>Moving Averages</h3>
+        ${statRow('Price',fRs(price))}${statRow('50-DMA',fRs(n(r['DMA 50'])))}${statRow('200-DMA',fRs(n(r['DMA 200'])))}
+        ${statRow('vs 50-DMA',pctVs(price,n(r['DMA 50'])))}${statRow('vs 200-DMA',pctVs(price,n(r['DMA 200'])))}
+        ${statRow('Trend',trendBadge(price,n(r['DMA 50']),n(r['DMA 200'])))}</div>
+      <div class="panel"><h3>Momentum</h3>${rsiGauge(n(r['RSI']))}
+        ${statRow('RSI (14)',fNum(n(r['RSI'])))}${statRow('MACD',fNum(n(r['MACD'])))}
+        ${statRow('Volume',fNum(n(r['Volume']),0))}${statRow('1M Avg Vol',fNum(n(r['Volume 1month average']),0))}</div>
+    </div>
+
+    <div class="sec-head"><div class="sh-ic">🏭</div><h2>Industry Comparison</h2><span class="sh-note">${r['Name']} vs ${peers.length} peers in ${r['Industry']||'industry'}</span><div class="sh-line"></div></div>
+    <div class="panel">
+      <div class="metric-sel" id="metricSel"></div>
+      <div class="ch" style="height:${Math.max(280,Math.min(peers.length,15)*26+60)}px"><canvas id="cIndustry"></canvas></div>
+    </div>
+
+    <div class="sec-head"><div class="sh-ic">🏆</div><h2>Market Position</h2><span class="sh-note">Rank within ${r['Industry']||'industry'}</span><div class="sh-line"></div></div>
+    <div class="grid r4" id="rankCards"></div>
+  </div>`;
+
+  renderKPIs(r,peers);
+  renderQuarterCharts(r);
+  renderValuation(r,peers);
+  renderPriceRet(r);
+  renderMetricSelector(r,peers);
+  renderRanks(r,peers);
+}
+
+function profItem(l,v){const na=v==null||v===''||v==='—';return `<div class="prof-item"><div class="pl">${l}</div><div class="pv ${na?'na':''}">${na?'Not in dataset':v}</div></div>`;}
+function statRow(l,v){return `<div class="stat-row"><span class="sl">${l}</span><span class="sv mono">${v}</span></div>`;}
+function pctVs(a,b){return (a>0&&b>0)?`<span class="${a>=b?'pos':'neg'}">${sgn((a/b-1)*100)}</span>`:'—';}
+function trendBadge(p,d50,d200){if(!(p>0&&d50>0&&d200>0))return '—';
+  if(p>d50&&d50>d200)return '<span class="pos">▲ Bullish</span>';
+  if(p<d50&&d50<d200)return '<span class="neg">▼ Bearish</span>';return '<span style="color:var(--gold)">◆ Neutral</span>';}
+function rangeGauge(p,lo,hi){if(!(p>0&&hi>lo))return '<div style="color:var(--text3);padding:1rem 0">No range data</div>';
+  const pos=Math.max(0,Math.min(100,(p-lo)/(hi-lo)*100));
+  return `<div class="gauge"><div class="gauge-track"><div class="gauge-mark" style="left:${pos}%" data-v="${fRs(p)}"></div></div>
+    <div class="gauge-ends"><span>${fRs(lo)}</span><span>${fRs(hi)}</span></div></div>`;}
+function rsiGauge(v){if(!isFinite(v))return '';const pos=Math.max(0,Math.min(100,v));
+  const zone=v>70?'Overbought':v<30?'Oversold':'Neutral';const col=v>70?'var(--neg)':v<30?'var(--pos)':'var(--gold)';
+  return `<div class="gauge"><div class="gauge-track" style="background:linear-gradient(90deg,var(--pos),var(--gold),var(--neg))"><div class="gauge-mark" style="left:${pos}%" data-v="${v.toFixed(0)}"></div></div>
+    <div class="gauge-ends"><span>0</span><span style="color:${col};font-weight:700">${zone}</span><span>100</span></div></div>`;}
+
+function renderKPIs(r,peers){
+  const price=n(r['Current Price']);
+  const pe=n(r['Price to Earning']);
+  const cards=[
+    ['Share Price (₹)',amt(price),'current','accent',''],
+    ['Market Cap (₹ Cr)',amt(n(r[K])),capCat(r[K])+' cap','teal',''],
+    ['P/E Ratio',pe>0?fMul(pe):'<span class="neg">Loss</span>','price / earnings','purple',''],
+    ['EPS (₹)',amt(D.eps(r)),'trailing','gold',''],
+    ['Revenue TTM (₹ Cr)',amt(D.revTTM(r)),growthSub(D.revGrowth(r),'YoY'),'accent',''],
+    ['Net Profit TTM (₹ Cr)',amt(D.netTTM(r)),growthSub(D.profitGrowth(r),'YoY'),D.netTTM(r)>=0?'pos':'neg',''],
+    ['Operating Profit (₹ Cr)',amt(D.opTTM(r)),'EBIT (TTM)','teal',''],
+    ['EBITDA (₹ Cr)',amt(D.opTTM(r)),'approx.','purple','EBITDA approximated by operating profit — depreciation &amp; amortisation are not in the dataset.'],
+    ['Operating Margin',fPct(D.opMargin(r)),'OPM','accent',''],
+    ['Net Margin',fPct(D.netMargin(r)),'net / revenue','gold',''],
+    ['ROE',fPct(n(r['Return on equity'])),'return on equity',n(r['Return on equity'])>=0?'pos':'neg',''],
+    ['ROCE',fPct(n(r['Return on capital employed'])),'ROA not in dataset','teal','Return on Capital Employed shown — Return on Assets requires total-assets data, which isn’t in the file.'],
+    ['Debt / Equity',fNum(n(r['Debt to equity'])),leverageSub(n(r['Debt to equity'])),'orange',''],
+    ['Dividend Yield',fPct(n(r['Dividend yield'])),'annual','gold',''],
+    ['Cash &amp; Equiv. (₹ Cr)',amt(n(r['Cash Equivalents'])),'FCF not in dataset','teal','Free Cash Flow is not available in the dataset. Cash &amp; Equivalents (balance-sheet) shown instead.'],
+    ['52W High (₹)',amt(n(r['High price'])),'high','pos',''],
+    ['52W Low (₹)',amt(n(r['Low price'])),'low','neg',''],
+    ['Revenue Growth',sgnSpan(D.revGrowth(r)),'YoY · latest qtr',D.revGrowth(r)>=0?'pos':'neg',''],
+    ['Profit Growth',sgnSpan(D.profitGrowth(r)),'YoY · latest qtr',D.profitGrowth(r)>=0?'pos':'neg',''],
+    ['P/B Ratio',fMul(D.pb(r)),'price / book','purple',''],
+  ];
+  document.getElementById('kpiGrid').innerHTML=cards.map(c=>`
+    <div class="kpi k-${c[3]}"><div class="kpi-l">${c[0]}${c[4]?` <span class="tip" data-tip="${c[4]}"><span class="info">i</span></span>`:''}</div>
+    <div class="kpi-v mono">${c[1]}</div><div class="kpi-s">${c[2]}</div></div>`).join('');
+}
+function growthSub(v,lbl){if(!isFinite(v))return 'n/m';return `<span class="${v>=0?'up':'dn'}">${sgn(v)}</span> ${lbl}`;}
+function sgnSpan(v){return isFinite(v)?`<span class="${v>=0?'pos':'neg'}">${sgn(v)}</span>`:'<span style="color:var(--text3)">n/m</span>';}
+function leverageSub(v){if(!isFinite(v))return '—';return v<0.5?'low leverage':v<1?'moderate':'high leverage';}
+
+const QL=['Q-3','Q-2','Q-1','Latest'];
+function qvals(r,base){return [r[base+' 3quarters back'],r[base+' 2quarters back'],r[base+' preceding quarter'],r[base+' latest quarter']].map(n);}
+function qvalsNet(r){return [r['Net profit 3quarters back'],r['Net profit 2quarters back'],r['Net Profit preceding quarter'],r['Net Profit latest quarter']].map(n);}
+function qvalsOp(r){return [r['Operating profit 3quarters back'],r['Operating profit 2quarters back'],r['Operating profit preceding quarter'],r['Operating profit latest quarter']].map(n);}
+function qvalsSales(r){return [r['Sales 3quarters back'],r['Sales 2quarters back'],r['Sales preceding quarter'],r['Sales latest quarter']].map(n);}
+
+function renderQuarterCharts(r){
+  const sales=qvalsSales(r),net=qvalsNet(r),op=qvalsOp(r);
+  const o=baseOpts();
+  mkChart('cRev',{type:'line',data:{labels:QL,datasets:[{label:'Revenue (₹ Cr)',data:sales,borderColor:'#3b9eff',backgroundColor:'rgba(59,158,255,.12)',fill:true,tension:.35,pointRadius:4,pointBackgroundColor:'#3b9eff',borderWidth:2.5}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}})});
+  mkChart('cNet',{type:'line',data:{labels:QL,datasets:[{label:'Net Profit (₹ Cr)',data:net,borderColor:'#26d97f',backgroundColor:'rgba(38,217,127,.12)',fill:true,tension:.35,pointRadius:4,pointBackgroundColor:'#26d97f',borderWidth:2.5}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}})});
+  mkChart('cOp',{type:'line',data:{labels:QL,datasets:[{label:'Operating Profit (₹ Cr)',data:op,borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.18)',fill:true,tension:.35,pointRadius:4,pointBackgroundColor:'#a78bfa',borderWidth:2.5}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}})});
+  mkChart('cDual',{data:{labels:QL,datasets:[
+      {type:'bar',label:'Revenue',data:sales,backgroundColor:'rgba(59,158,255,.55)',borderRadius:4,yAxisID:'y'},
+      {type:'line',label:'Net Profit',data:net,borderColor:'#26d97f',backgroundColor:'#26d97f',tension:.35,pointRadius:4,borderWidth:2.5,yAxisID:'y1'}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+fCr(c.parsed.y)}}},
+      scales:{x:o.scales.x,y:{...o.scales.y,position:'left',ticks:{...o.scales.y.ticks,callback:fAxis}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:o.scales.y.ticks.color,font:o.scales.y.ticks.font,callback:fAxis}}}})});
+  mkChart('cQperf',{type:'bar',data:{labels:QL,datasets:[
+      {label:'Revenue',data:sales,backgroundColor:'#3b9eff',borderRadius:3},
+      {label:'Op. Profit',data:op,backgroundColor:'#a78bfa',borderRadius:3},
+      {label:'Net Profit',data:net,backgroundColor:'#26d97f',borderRadius:3}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}})});
+  const opm=sales.map((s,i)=>s>0?+(op[i]/s*100).toFixed(2):null);
+  const nm=sales.map((s,i)=>s>0?+(net[i]/s*100).toFixed(2):null);
+  mkChart('cMargin',{type:'line',data:{labels:QL,datasets:[
+      {label:'Operating Margin %',data:opm,borderColor:'#3b9eff',backgroundColor:'#3b9eff',tension:.35,pointRadius:4,borderWidth:2.5},
+      {label:'Net Margin %',data:nm,borderColor:'#26d97f',backgroundColor:'#26d97f',tension:.35,pointRadius:4,borderWidth:2.5}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y+'%')}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'%'}}}})});
+  // YoY latest qtr vs prior year qtr
+  const yoy=[['Revenue',n(r['Sales latest quarter']),n(r['Sales preceding year quarter'])],
+            ['Op. Profit',n(r['Operating profit latest quarter']),n(r['Operating profit preceding year quarter'])],
+            ['Net Profit',n(r['Net Profit latest quarter']),n(r['Net Profit preceding year quarter'])]];
+  mkChart('cYoY',{type:'bar',data:{labels:yoy.map(x=>x[0]),datasets:[
+      {label:'Prior Year Q',data:yoy.map(x=>x[2]),backgroundColor:'#647089',borderRadius:3},
+      {label:'Latest Q',data:yoy.map(x=>x[1]),backgroundColor:'#3b9eff',borderRadius:3}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}})});
+}
+
+function renderValuation(r,peers){
+  const o=baseOpts();
+  const mets=[['P/E',n(r['Price to Earning']),med(peers.map(p=>n(p['Price to Earning'])).filter(v=>v>0&&v<300))],
+             ['P/B',D.pb(r),med(peers.map(p=>D.pb(p)).filter(v=>v>0&&v<100))],
+             ['Mcap/Sales',n(r['Market Cap to Sales']),med(peers.map(p=>n(p['Market Cap to Sales'])).filter(v=>v>0&&v<100))]];
+  mkChart('cVal',{type:'bar',data:{labels:mets.map(m=>m[0]),datasets:[
+      {label:r['Name'],data:mets.map(m=>isFinite(m[1])?+m[1].toFixed(2):0),backgroundColor:'#3b9eff',borderRadius:4},
+      {label:'Industry Median',data:mets.map(m=>isFinite(m[2])?+m[2].toFixed(2):0),backgroundColor:'#647089',borderRadius:4}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'x'}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'x'}}}})});
+}
+
+function renderPriceRet(r){
+  const o=baseOpts();
+  const rp=[['Return over 1day','1D'],['Return over 1week','1W'],['Return over 1month','1M'],['Return over 3months','3M'],['Return over 6months','6M'],['Return over 1year','1Y']];
+  const v=rp.map(p=>n(r[p[0]]));
+  mkChart('cPriceRet',{type:'bar',data:{labels:rp.map(p=>p[1]),datasets:[{data:v.map(x=>isFinite(x)?+x.toFixed(2):0),backgroundColor:v.map(x=>x>=0?'#26d97f':'#ff5470'),borderRadius:4}]},
+    options:baseOpts({plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'%'}}}})});
+}
+
+/* ── Industry peers ── */
+function peersOf(r){
+  let p=ALL.filter(x=>x['Industry']&&x['Industry']===r['Industry']);
+  if(p.length<3)p=ALL.filter(x=>x['Industry Group']===r['Industry Group']);
+  return p;
+}
+const IND_METRICS={
+  'Revenue':{f:D.revTTM,fmt:fCr,unit:''},
+  'Net Profit':{f:D.netTTM,fmt:fCr,unit:''},
+  'Market Cap':{f:r=>n(r[K]),fmt:fCr,unit:''},
+  'P/E Ratio':{f:r=>{const v=n(r['Price to Earning']);return v>0?v:NaN;},fmt:fMul,unit:'x'},
+  'ROE':{f:r=>n(r['Return on equity']),fmt:v=>fPct(v),unit:'%'},
+  'Op. Margin':{f:D.opMargin,fmt:v=>fPct(v),unit:'%'},
+  'EBITDA Margin':{f:D.ebitdaMargin,fmt:v=>fPct(v),unit:'%'},
+  'Net Margin':{f:D.netMargin,fmt:v=>fPct(v),unit:'%'},
+  'Dividend Yield':{f:r=>n(r['Dividend yield']),fmt:v=>fPct(v),unit:'%'},
+  'Revenue Growth':{f:D.revGrowth,fmt:v=>sgn(v),unit:'%'},
+  'Profit Growth':{f:D.profitGrowth,fmt:v=>sgn(v),unit:'%'},
+};
+function renderMetricSelector(r,peers){
+  const keys=Object.keys(IND_METRICS);
+  if(!keys.includes(INDUSTRY_METRIC))INDUSTRY_METRIC='Revenue';
+  document.getElementById('metricSel').innerHTML=keys.map(k=>`<button class="${k===INDUSTRY_METRIC?'act':''}" onclick="setMetric('${k}')">${k}</button>`).join('');
+  drawIndustryChart(r,peers);
+}
+function setMetric(m){INDUSTRY_METRIC=m;const r=byKey[SEL[0]];if(r){renderMetricSelector(r,peersOf(r));}}
+function drawIndustryChart(r,peers){
+  const M=IND_METRICS[INDUSTRY_METRIC];const o=baseOpts();
+  let data=peers.map(p=>({name:p['Name'],k:key(p),v:M.f(p)})).filter(d=>isFinite(d.v));
+  data.sort((a,b)=>b.v-a.v);
+  const meKey=key(r);
+  let top=data.slice(0,15);
+  if(!top.find(d=>d.k===meKey)){const me=data.find(d=>d.k===meKey);if(me){top=top.slice(0,14);top.push(me);}}
+  top.sort((a,b)=>b.v-a.v);
+  mkChart('cIndustry',{type:'bar',data:{labels:top.map(d=>d.name),datasets:[{data:top.map(d=>+d.v.toFixed(2)),
+      backgroundColor:top.map(d=>d.k===meKey?'#ff9f43':'#3b9eff'),borderRadius:4}]},
+    options:baseOpts({indexAxis:'y',onClick:(e,el)=>{if(el.length){const nm=top[el[0].index];if(nm&&nm.k!==meKey){SEL=[nm.k];renderAll();}}},
+      plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>M.fmt(c.parsed.x)+(M.unit&&!String(M.fmt(c.parsed.x)).includes('%')&&M.unit==='x'?'':'')}}},
+      scales:{x:{...o.scales.x,ticks:{...o.scales.x.ticks,callback:v=>M.unit==='%'?v+'%':M.unit==='x'?v+'x':fAxis(v)}},y:o.scales.y}})});
+}
+
+/* ── Ranks ── */
+function rankIn(peers,r,fn,hiBest=true){
+  const me=fn(r);if(!isFinite(me))return null;
+  const vals=peers.map(fn).filter(isFinite).sort((a,b)=>hiBest?b-a:a-b);
+  const rank=vals.findIndex(v=>hiBest?v<=me:v>=me)+1||vals.length;
+  return {rank,total:vals.length,pct:vals.length>1?(vals.length-rank)/(vals.length-1)*100:100};
+}
+function renderRanks(r,peers){
+  const defs=[
+    ['Revenue',D.revTTM],['Net Profit',D.netTTM],['Market Cap',r2=>n(r2[K])],['ROE',r2=>n(r2['Return on equity'])],
+    ['Revenue Growth',D.revGrowth],['Profit Growth',D.profitGrowth],['Op. Margin',D.opMargin],['Dividend Yield',r2=>n(r2['Dividend yield'])]
+  ];
+  const cards=defs.map(([l,fn])=>{const rk=rankIn(peers,r,fn);
+    if(!rk)return `<div class="rank-card"><div class="rk-l">${l}</div><div class="rk-v" style="color:var(--text3)">—</div><div class="rk-pct">no data</div></div>`;
+    return `<div class="rank-card"><div class="rk-l">${l}</div><div class="rk-v">#${rk.rank} <small>/ ${rk.total}</small></div>
+      <div class="rank-bar"><i style="width:${rk.pct.toFixed(0)}%"></i></div>
+      <div class="rk-pct">Top ${(100-rk.pct).toFixed(0)}% percentile</div></div>`;}).join('');
+  document.getElementById('rankCards').innerHTML=cards;
+}
+
+/* ═══════════════════════ COMPARE MODE (2+ selected) ═══════════════════════ */
+function renderCompare(host){
+  const rows=SEL.map(k=>byKey[k]).filter(Boolean);
+  const o=baseOpts();
+  host.innerHTML=`
+  <div class="sec">
+    <div class="sec-head"><div class="sh-ic">⚖️</div><h2>Multi-Company Comparison</h2><span class="sh-note">${rows.length} companies</span><div class="sh-line"></div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(${Math.min(rows.length,5)},1fr)">
+      ${rows.slice(0,10).map((r,i)=>`<div class="kpi" style="--accent:${COLORS[i%COLORS.length]}">
+        <div class="kpi-l" style="color:${COLORS[i%COLORS.length]}">${initials(r['Name'])} · ${r['Name'].slice(0,16)}</div>
+        <div class="kpi-v mono">${fCr(n(r[K]))}</div>
+        <div class="kpi-s">P/E ${fMul(n(r['Price to Earning']))} · ROE ${fPct(n(r['Return on equity']))}</div></div>`).join('')}
+    </div>
+    <div class="grid r2" style="margin-top:1rem">
+      <div class="panel"><h3>Quarterly Revenue</h3><div class="ch" style="height:260px"><canvas id="cmpRev"></canvas></div></div>
+      <div class="panel"><h3>Quarterly Net Profit</h3><div class="ch" style="height:260px"><canvas id="cmpNet"></canvas></div></div>
+    </div>
+    <div class="grid r2" style="margin-top:1rem">
+      <div class="panel"><h3>Operating Profit</h3><div class="ch" style="height:260px"><canvas id="cmpOp"></canvas></div></div>
+      <div class="panel"><h3>Profitability Comparison <span style="color:var(--text3);font-weight:600">· ROE / OpM / NetM / DivYld %</span></h3><div class="ch" style="height:260px"><canvas id="cmpProf"></canvas></div></div>
+    </div>
+    <div class="grid r2" style="margin-top:1rem">
+      <div class="panel"><h3>Valuation Comparison <span style="color:var(--text3);font-weight:600">· P/E &amp; P/B</span></h3><div class="ch" style="height:260px"><canvas id="cmpVal"></canvas></div></div>
+      <div class="panel"><h3>Market Cap</h3><div class="ch" style="height:260px"><canvas id="cmpCap"></canvas></div></div>
+    </div>
+  </div>`;
+  const ds=(fn,fill)=>rows.map((r,i)=>({label:r['Name'],data:fn(r),borderColor:COLORS[i%COLORS.length],
+    backgroundColor:fill?COLORS[i%COLORS.length]+'22':COLORS[i%COLORS.length],tension:.35,pointRadius:3,borderWidth:2.5,fill:false}));
+  const lineOpts=baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+fCr(c.parsed.y)}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:fAxis}}}});
+  mkChart('cmpRev',{type:'line',data:{labels:QL,datasets:ds(qvalsSales)},options:lineOpts});
+  mkChart('cmpNet',{type:'line',data:{labels:QL,datasets:ds(qvalsNet)},options:lineOpts});
+  mkChart('cmpOp',{type:'line',data:{labels:QL,datasets:ds(qvalsOp)},options:lineOpts});
+  // Profitability grouped
+  const profMets=['ROE','Op. Margin','Net Margin','Div Yield'];
+  mkChart('cmpProf',{type:'bar',data:{labels:profMets,datasets:rows.map((r,i)=>({label:r['Name'],
+      data:[n(r['Return on equity']),D.opMargin(r),D.netMargin(r),n(r['Dividend yield'])].map(v=>isFinite(v)?+v.toFixed(1):0),
+      backgroundColor:COLORS[i%COLORS.length],borderRadius:3}))},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'%'}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'%'}}}})});
+  mkChart('cmpVal',{type:'bar',data:{labels:rows.map(r=>r['Name']),datasets:[
+      {label:'P/E',data:rows.map(r=>{const v=n(r['Price to Earning']);return v>0?+v.toFixed(1):0;}),backgroundColor:'#3b9eff',borderRadius:3},
+      {label:'P/B',data:rows.map(r=>{const v=D.pb(r);return isFinite(v)?+v.toFixed(1):0;}),backgroundColor:'#a78bfa',borderRadius:3}]},
+    options:baseOpts({plugins:{legend:o.plugins.legend,tooltip:{...o.plugins.tooltip,callbacks:{label:c=>c.dataset.label+': '+c.parsed.y+'x'}}},scales:{x:o.scales.x,y:{...o.scales.y,ticks:{...o.scales.y.ticks,callback:v=>v+'x'}}}})});
+  mkChart('cmpCap',{type:'bar',data:{labels:rows.map(r=>r['Name']),datasets:[{data:rows.map(r=>n(r[K])),backgroundColor:rows.map((r,i)=>COLORS[i%COLORS.length]),borderRadius:4}]},
+    options:baseOpts({indexAxis:'y',plugins:{legend:{display:false},tooltip:{...o.plugins.tooltip,callbacks:{label:c=>fCr(c.parsed.x)}}},scales:{x:{...o.scales.x,ticks:{...o.scales.x.ticks,callback:fAxis}},y:o.scales.y}})});
+}
+
+/* ═══════════════════════ COMPARISON TABLE ═══════════════════════ */
+const COLS=[
+  {k:'Name',l:'Company',t:'txt'},{k:'Industry',l:'Industry',t:'txt'},
+  {k:'_rev',l:'Revenue (₹ Cr)',t:'cr',f:D.revTTM},{k:'_net',l:'Net Profit (₹ Cr)',t:'cr',f:D.netTTM},
+  {k:'_op',l:'Op. Profit (₹ Cr)',t:'cr',f:D.opTTM},{k:K,l:'Market Cap (₹ Cr)',t:'cr',f:r=>n(r[K])},
+  {k:'Price to Earning',l:'P/E',t:'mul'},{k:'_eps',l:'EPS (₹)',t:'rs',f:D.eps},
+  {k:'Return on equity',l:'ROE',t:'pct'},{k:'Return on capital employed',l:'ROCE',t:'pct'},
+  {k:'Debt to equity',l:'D/E',t:'num'},{k:'Dividend yield',l:'Div Yld',t:'pct'},
+  {k:'_rg',l:'Rev Gr',t:'sg',f:D.revGrowth},{k:'_pg',l:'Profit Gr',t:'sg',f:D.profitGrowth},
+];
+function getVal(r,c){return c.f?c.f(r):n(r[c.k]);}
+function renderTable(){
+  const host=document.getElementById('tableSection');
+  if(!host.dataset.init){
+    host.innerHTML=`
+    <div class="sec">
+      <div class="sec-head"><div class="sh-ic">📑</div><h2>Comparison Table</h2><div class="sh-line"></div></div>
+      <div class="panel" style="padding:0">
+        <div style="padding:.9rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+          <div class="tbl-tools">
+            <input class="txt-in" id="tSearch" placeholder="🔍 Search company…" style="width:220px">
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text2);cursor:pointer">
+              <input type="checkbox" id="tSelOnly" class="cbx"> Selected only</label>
+          </div>
+          <span class="count-badge" id="tCount"></span>
+        </div>
+        <div class="tbl-wrap" style="border:none;border-radius:0">
+          <table><thead><tr id="tHead"></tr></thead><tbody id="tBody"></tbody></table>
+        </div>
+        <div class="pag" id="tPag"></div>
+      </div>
+    </div>`;
+    host.dataset.init='1';
+    document.getElementById('tSearch').addEventListener('input',()=>{TBL_PAGE=1;drawTable();});
+    document.getElementById('tSelOnly').addEventListener('change',()=>{TBL_PAGE=1;drawTable();});
+    document.getElementById('tHead').innerHTML=`<th style="width:34px"></th>`+COLS.map(c=>`<th onclick="sortTbl('${c.k}')" data-k="${c.k}">${c.l}</th>`).join('');
+  }
+  drawTable();
+}
+function sortTbl(k){if(TBL_SORT.col===k)TBL_SORT.asc=!TBL_SORT.asc;else{TBL_SORT.col=k;TBL_SORT.asc=(k==='Name'||k==='Industry');}TBL_PAGE=1;drawTable();}
+function drawTable(){
+  const q=(document.getElementById('tSearch').value||'').toLowerCase().trim();
+  const selOnly=document.getElementById('tSelOnly').checked;
+  let rows=universe();
+  if(selOnly)rows=rows.filter(r=>SEL.includes(key(r)));
+  if(q)rows=rows.filter(r=>r['Name'].toLowerCase().includes(q));
+  const col=COLS.find(c=>c.k===TBL_SORT.col)||COLS[5];
+  rows=[...rows].sort((a,b)=>{
+    if(col.t==='txt'){return TBL_SORT.asc?String(a[col.k]||'').localeCompare(b[col.k]||''):String(b[col.k]||'').localeCompare(a[col.k]||'');}
+    const av=getVal(a,col),bv=getVal(b,col);
+    const aok=isFinite(av),bok=isFinite(bv);
+    if(!aok&&!bok)return 0;if(!aok)return 1;if(!bok)return -1;
+    return TBL_SORT.asc?av-bv:bv-av;
+  });
+  TBL_FILTERED=rows;
+  document.getElementById('tCount').textContent=rows.length.toLocaleString('en-IN')+' companies';
+  document.querySelectorAll('#tHead th').forEach(th=>{th.classList.remove('asc','desc');if(th.dataset.k===TBL_SORT.col)th.classList.add(TBL_SORT.asc?'asc':'desc');});
+  const start=(TBL_PAGE-1)*PER,page=rows.slice(start,start+PER);
+  document.getElementById('tBody').innerHTML=page.map(r=>{
+    const k=key(r),sel=SEL.includes(k),cap=capCat(r[K]);
+    return `<tr class="${sel?'sel':''}">
+      <td style="text-align:center"><input type="checkbox" class="cbx" ${sel?'checked':''} onchange="toggleRow('${k.replace(/'/g,"\\'")}')"></td>
+      <td><div class="cnm"><span class="mini-logo" style="background:${logoColor(r['Name'])}">${initials(r['Name'])}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis">${r['Name']}</span>${cap?`<span class="pill p-${cap.toLowerCase()}">${cap[0]}</span>`:''}</div></td>
+      <td style="color:var(--text2)">${r['Industry']||'—'}</td>
+      ${COLS.slice(2).map(c=>tdCell(r,c)).join('')}
+    </tr>`;
+  }).join('')||`<tr><td colspan="${COLS.length+1}" style="text-align:center;padding:2rem;color:var(--text3)">No companies match the current filters</td></tr>`;
+  drawPag(rows.length);
+}
+function tdCell(r,c){
+  const v=getVal(r,c);
+  if(c.t==='cr')return `<td class="mono">${amt(v)}</td>`;
+  if(c.t==='rs')return `<td class="mono">${amt(v)}</td>`;
+  if(c.t==='mul')return `<td class="mono">${v>0?fMul(v):'<span style="color:var(--text3)">—</span>'}</td>`;
+  if(c.t==='pct')return `<td class="mono ${isFinite(v)?(v>=0?'':'neg'):''}">${fPct(v)}</td>`;
+  if(c.t==='num')return `<td class="mono">${fNum(v)}</td>`;
+  if(c.t==='sg')return `<td class="mono ${isFinite(v)?(v>=0?'pos':'neg'):''}">${isFinite(v)?sgn(v):'<span style="color:var(--text3)">n/m</span>'}</td>`;
+  return `<td>${r[c.k]||'—'}</td>`;
+}
+function toggleRow(k){if(SEL.includes(k))SEL=SEL.filter(x=>x!==k);else SEL.push(k);renderAll();}
+function drawPag(total){
+  const pages=Math.ceil(total/PER),el=document.getElementById('tPag');
+  if(pages<=1){el.innerHTML='';return;}
+  let h=`<button onclick="goPage(${TBL_PAGE-1})" ${TBL_PAGE===1?'disabled':''}>‹</button>`;
+  const s=Math.max(1,TBL_PAGE-2),e=Math.min(pages,TBL_PAGE+2);
+  if(s>1){h+=`<button onclick="goPage(1)">1</button>`;if(s>2)h+=`<span class="pi">…</span>`;}
+  for(let i=s;i<=e;i++)h+=`<button onclick="goPage(${i})" class="${i===TBL_PAGE?'act':''}">${i}</button>`;
+  if(e<pages){if(e<pages-1)h+=`<span class="pi">…</span>`;h+=`<button onclick="goPage(${pages})">${pages}</button>`;}
+  h+=`<button onclick="goPage(${TBL_PAGE+1})" ${TBL_PAGE===pages?'disabled':''}>›</button><span class="pi">Page ${TBL_PAGE} / ${pages}</span>`;
+  el.innerHTML=h;
+}
+function goPage(p){const pages=Math.ceil(TBL_FILTERED.length/PER);if(p<1||p>pages)return;TBL_PAGE=p;drawTable();}
+
+/* ═══════════════════════ EXPORT ═══════════════════════ */
+function exportExcel(){
+  const rows=TBL_FILTERED.length?TBL_FILTERED:universe();
+  const out=rows.map(r=>{const o={Company:r['Name'],ISIN:r['ISIN Code'],Industry:r['Industry'],Sector:r['Industry Group'],
+    'Current Price':n(r['Current Price']),'Market Cap (Cr)':n(r[K]),'Revenue TTM (Cr)':round(D.revTTM(r)),
+    'Net Profit TTM (Cr)':round(D.netTTM(r)),'Op Profit TTM (Cr)':round(D.opTTM(r)),'P/E':n(r['Price to Earning']),
+    'EPS':round(D.eps(r)),'Op Margin %':round(D.opMargin(r)),'Net Margin %':round(D.netMargin(r)),
+    'ROE %':n(r['Return on equity']),'ROCE %':n(r['Return on capital employed']),'Debt/Equity':n(r['Debt to equity']),
+    'Div Yield %':n(r['Dividend yield']),'Rev Growth %':round(D.revGrowth(r)),'Profit Growth %':round(D.profitGrowth(r)),
+    'P/B':round(D.pb(r)),'1Y Return %':n(r['Return over 1year']),'RSI':n(r['RSI'])};return o;});
+  const ws=XLSX.utils.json_to_sheet(out);const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Equity Analysis');
+  XLSX.writeFile(wb,'equity-dashboard-export.xlsx');
+}
+const round=v=>isFinite(v)?Math.round(v*100)/100:'';
+
+/* ═══════════════════════ THEME ═══════════════════════ */
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('eqt-theme',next);}catch(e){}
+  setThemeIcon(next);
+  if(ALL.length)renderAll();
+}
+function setThemeIcon(t){
+  document.getElementById('themeIcon').innerHTML=t==='dark'
+    ?'<path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 01-4.4 2.26 5.4 5.4 0 01-5.4-5.4c0-1.81.9-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>'
+    :'<path d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>';
+}
+try{const saved=localStorage.getItem('eqt-theme');if(saved){document.documentElement.setAttribute('data-theme',saved);}}catch(e){}
+setThemeIcon(document.documentElement.getAttribute('data-theme'));
+Chart.defaults.font.family='Inter';
+Chart.defaults.animation.duration=600;
+</script>
+</body>
+</html>
